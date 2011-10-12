@@ -2,10 +2,10 @@ require 'cgi'
 
 def markup(src)
 	tokens = {
-		/\*\*(.+)\*\*/ => '<span style="font-weight:bold;">\1</span>',
-		/\/\/(.+)\/\// => '<span style="font-style:italic;">\1</span>',
-		/__(.+)__/ => '<span style="text-decoration:underline;">\1</span>',
-		/\'\'(.+)\'\'/ => '<span style="font-family:monospace;">\1</span>',
+		/(\W)\*\*(.+)\*\*(\W)/ => '\1<span style="font-weight:bold;">\2</span>\3',
+		/(\W)\/\/(.+)\/\/(\W)/ => '\1<span style="font-style:italic;">\2</span>\3',
+		/(\W)__(.+)__(\W)/ => '\1<span style="text-decoration:underline;">\2</span>\3',
+		/(\W)\'\'(.+)\'\'(\W)/ => '\1<span style="font-family:monospace;">\2</span>\3',
 		/<del>(.+)<\/del>/ => '<span style="text-decoration:line-through;">\1</span>',
 		/\\\\\s/ => '<br />',
 		/\(\((.+)\)\)\s/ => '<a href="#" class="tooltip"><sup>*)</sup><span style="display:none;">\1</span></a>',
@@ -22,8 +22,11 @@ def markup(src)
 		/\{\{(.+)\}\}/ => '<img src="\1" />',
 		/\[\[(.+)\|(.+)\]\]/ => '<a href="\1">\2</a>',
 		/\[\[(.+)\]\]/ => '<a href="\1">\1</a>',
-	#	/^\s+\*\s(.+)$/ => '<li>\1</li>'
 	}
+
+	# parse raw links
+
+	src.sub!(/((\w+):\/\/(\S+))/, '<a href="\0">\0</a>')
 
 	# parse lists
 
@@ -32,9 +35,11 @@ def markup(src)
 	#src.sub!(/(^\s+-\s(.+)$)+/m, '<ol>\1</ol>')
 	#src.sub!(/(^\s+\*\s(.+)$)+/m, '<ul>\1</ul>')
 
-	tokens.each do |k, v|
-		while (src =~ k) do
-			src.sub!(k, v)
+	2.times do
+		tokens.each do |k, v|
+			while (src =~ k) do
+				src.sub!(k, v)
+			end
 		end
 	end
 
