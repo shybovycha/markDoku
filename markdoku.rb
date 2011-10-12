@@ -2,7 +2,7 @@ require 'cgi'
 
 def markup(src)
 	tokens = {
-		/\*\*(.+)\*\*/ => '<span style="text-weight:bold;">\1</span>',
+		/\*\*(.+)\*\*/ => '<span style="font-weight:bold;">\1</span>',
 		/\/\/(.+)\/\// => '<span style="font-style:italic;">\1</span>',
 		/__(.+)__/ => '<span style="text-decoration:underline;">\1</span>',
 		/\'\'(.+)\'\'/ => '<span style="font-family:monospace;">\1</span>',
@@ -22,21 +22,75 @@ def markup(src)
 		/\{\{(.+)\}\}/ => '<img src="\1" />',
 		/\[\[(.+)\|(.+)\]\]/ => '<a href="\1">\2</a>',
 		/\[\[(.+)\]\]/ => '<a href="\1">\1</a>',
-		/^\s+\*\s(.+)$/ => '<li>\1</li>'
+	#	/^\s+\*\s(.+)$/ => '<li>\1</li>'
 	}
 
 	# parse lists
 
-	src.sub!(/(^\s+-\s(.+)$)+/m, '<ol>\1</ol>')
-	src.sub!(/(^\s+\*\s(.+)$)+/m, '<ul>\1</ul>')
+	list_tokens = [/^(\s\s)+\*\s(.+)$/m , /^(\s\s)+-\s(.+)$/m ]
+
+	#src.sub!(/(^\s+-\s(.+)$)+/m, '<ol>\1</ol>')
+	#src.sub!(/(^\s+\*\s(.+)$)+/m, '<ul>\1</ul>')
 
 	tokens.each do |k, v|
 		while (src =~ k) do
 			src.sub!(k, v)
 		end
 	end
+
+	lines = src.split /\n/
+	li_regex = /^((\s\s)+)(?=(\*|-)\s)/
+
+	prev_line = lines.shift
+	res = [prev_line]
+
+	lines.each do |line|
+		if (line.length <= 0)
+			res << line
+			next
+		end
+
+		l1, l2 = -1, -1
+
+		l1 = li_regex.match(prev_line)[1].length if (li_regex =~ prev_line)
+		l2 = li_regex.match(line)[1].length if (li_regex =~ line)
+
+		#puts ":: #{l1}, #{l2} :: [ `#{prev_line}` (#{prev_line.length}), `#{line}` (#{line.length}) ]"
+
+		if (l1 < 0) && (l2 > 0)
+			res << line.sub(/^\s+\*\s(.+)$/, '<ul><li>\1')
+		elsif (l1 > 0) && (l1 == l2)
+			s = res.pop
+			s += '</li>'
+			res << s
+
+			res << line.sub(/\s+\*\s(.+)$/, '<li>\1')
+		elsif (l1 > 0) && (l2 > l1)
+			s = res.pop
+			s += '<ul>'
+			res << s
+
+			res << line.sub(/\s+\*\s(.+)$/, '<li>\1')
+		elsif (l2 > 0) && (l1 > l2)
+			s = res.pop
+			s += '</li>' + ('</ul></li>' * ((l1 / 2) - 1))
+			res << s
+
+			res << line.sub(/\s+\*\s(.+)$/, '<li>\1')
+		elsif (l1 > 0) && (l2 < 0)
+			s = res.pop
+			s += ('</li></ul>' * (l1 / 2))
+			res << s
+
+			res << line
+		else
+			res << line
+		end
+		
+		prev_line = line
+	end
 	
-	return src
+	return res.join "\n"
 end
 
 s = <<'MOOENDOFSTRING'
@@ -75,6 +129,8 @@ Resized external image:           {{http://de3.php.net/images/php.gif?200x50}}
   * The second item
     * You may have different levels
   * Another item
+
+The end of string
 MOOENDOFSTRING
 
 puts "<pre>#{CGI.escapeHTML(s)}</pre>"
